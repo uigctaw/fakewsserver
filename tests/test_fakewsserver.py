@@ -10,51 +10,42 @@ atest = pytest.mark.asyncio
 @atest
 async def test_connect_do_nothing_and_return():
    
-    async with assert_communication(
-            port=1234, communication=()) as result:
+    async with assert_communication(port=1234, communication=()):
         pass
-
-    assert result.passed
 
 
 @atest
 async def test_single_response_succeeds():
-
-    communication =  [
-        ('hello', 'there'),
-    ]
-
     async with assert_communication(
             port=12345,
-            communication=communication,
-            ) as result:
+            communication=[('hello', 'there')],
+            ):
         async with websockets.connect('ws://[::1]:12345') as client:
             await client.send('hello')
             response = await client.recv()
          
-    assert result.passed
     assert response == 'there'
 
 
 @atest
 async def test_2_out_1_response_succeeds():
+    # Also bytes are fine
 
     communication =  [
         ('hello', None),
-        ('there', 'General Kenobi'),
+        (b'there', b'General Kenobi'),
     ]
 
     async with assert_communication(
             port=12345,
             communication=communication,
-            ) as result:
+            ):
         async with websockets.connect('ws://[::1]:12345') as client:
             await client.send('hello')
-            await client.send('there')
+            await client.send(b'there')
             response = await client.recv()
          
-    assert result.passed
-    assert response == 'General Kenobi'
+    assert response == b'General Kenobi'
 
 
 @atest
@@ -68,7 +59,7 @@ async def test_2_messages_out_1_response_in_succeed():
     async with assert_communication(
             port=12345,
             communication=communication,
-            ) as result:
+            ):
         async with websockets.connect('ws://[::1]:12345') as client:
             await client.send('hello')
             await client.send('there')
@@ -78,7 +69,7 @@ async def test_2_messages_out_1_response_in_succeed():
 
 
 @atest
-async def test_expected_message_is_incorrect_gives_an_error():
+async def test_expected_message_is_incorrect_and_result_in_an_error():
 
     communication =  [
         ('hello', 'there'),
@@ -88,7 +79,44 @@ async def test_expected_message_is_incorrect_gives_an_error():
         async with assert_communication(
                 port=12345,
                 communication=communication,
-                ) as result:
+                ):
             async with websockets.connect('ws://[::1]:12345') as client:
                 await client.send('hi')
                 response = await client.recv()
+
+
+@atest
+async def test_more_messages_expected_than_sent_causes_error():
+
+    communication =  [
+        ('hello', 'there'),
+        ('General', 'Kenobi'),
+    ]
+
+    with pytest.raises(AssertionError):
+        async with assert_communication(
+                port=12345,
+                communication=communication,
+                ):
+            async with websockets.connect('ws://[::1]:12345') as client:
+                await client.send('hello')
+                response = await client.recv()
+
+
+@atest
+async def test_multiple_responses_for_a_single_message():
+
+    communication =  [
+        ('hello', None),
+        ('there', ['General', b'Kenobi']),
+    ]
+
+    async with assert_communication(
+            port=12345,
+            communication=communication,
+            ):
+        async with websockets.connect('ws://[::1]:12345') as client:
+            await client.send('hello')
+            await client.send('there')
+            assert await client.recv() == 'General'
+            assert await client.recv() == b'Kenobi'

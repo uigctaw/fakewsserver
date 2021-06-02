@@ -1,4 +1,5 @@
 from typing import Optional
+import collections
 import contextlib
 
 import websockets
@@ -26,8 +27,11 @@ def get_ws_connection_handler(communication, result):
             i += 1
             expected_input, answer = communication.pop()
             if expected_input == message:
-                if answer is not None:
+                if isinstance(answer, (str, bytes)):
                     await ws_proto.send(answer)
+                elif isinstance(answer, collections.abc.Iterable):
+                    for piece_of_answer in answer:
+                        await ws_proto.send(piece_of_answer)
             else:
                 ith = {
                     1: '1st',
@@ -37,11 +41,17 @@ def get_ws_connection_handler(communication, result):
                 result.exception = AssertionError(
                     f'Failed {ith} step:\n'
                     f'Expected: "{expected_input}"\n'
-                    + f'Got: "{message}"\n'
+                    + f'Got: "{message}"'
                 )   
                 result.passed = False
                 return
-        result.passed = True
+        if communication:
+            result.passed = False
+            result.exception = AssertionError(
+                f'No more input messages. Expecting more: {communication}.'
+            )
+        else:
+            result.passed = True
 
     return fn
 
@@ -52,7 +62,7 @@ async def assert_communication(port, communication):
     handler = get_ws_connection_handler(communication, result)
     async with websockets.serve(handler, '::1', port):
         try:
-            yield result
+            yield
         except websockets.exceptions.ConnectionClosedOK:
             pass
     if not result.passed:
