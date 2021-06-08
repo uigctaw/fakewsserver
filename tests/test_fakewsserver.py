@@ -9,7 +9,7 @@ atest = pytest.mark.asyncio
 
 @atest
 async def test_connect_do_nothing_and_return():
-   
+
     async with assert_communication(port=1234, communication=()):
         pass
 
@@ -23,7 +23,7 @@ async def test_single_response_succeeds():
         async with websockets.connect('ws://[::1]:12345') as client:
             await client.send('hello')
             response = await client.recv()
-         
+
     assert response == 'there'
 
 
@@ -31,7 +31,7 @@ async def test_single_response_succeeds():
 async def test_2_out_1_response_succeeds():
     # Also bytes are fine
 
-    communication =  [
+    communication = [
         ('hello', None),
         (b'there', b'General Kenobi'),
     ]
@@ -44,14 +44,14 @@ async def test_2_out_1_response_succeeds():
             await client.send('hello')
             await client.send(b'there')
             response = await client.recv()
-         
+
     assert response == b'General Kenobi'
 
 
 @atest
 async def test_2_messages_out_1_response_in_succeed():
 
-    communication =  [
+    communication = [
         ('hello', None),
         ('there', 'General Kenobi'),
     ]
@@ -64,14 +64,14 @@ async def test_2_messages_out_1_response_in_succeed():
             await client.send('hello')
             await client.send('there')
             response = await client.recv()
-         
+
     assert response == 'General Kenobi'
 
 
 @atest
-async def test_expected_message_is_incorrect_and_result_in_an_error():
+async def test_expected_message_is_incorrect_and_results_in_an_error():
 
-    communication =  [
+    communication = [
         ('hello', 'there'),
     ]
 
@@ -82,13 +82,13 @@ async def test_expected_message_is_incorrect_and_result_in_an_error():
                 ):
             async with websockets.connect('ws://[::1]:12345') as client:
                 await client.send('hi')
-                response = await client.recv()
+                await client.recv()
 
 
 @atest
 async def test_more_messages_expected_than_sent_causes_error():
 
-    communication =  [
+    communication = [
         ('hello', 'there'),
         ('General', 'Kenobi'),
     ]
@@ -100,13 +100,13 @@ async def test_more_messages_expected_than_sent_causes_error():
                 ):
             async with websockets.connect('ws://[::1]:12345') as client:
                 await client.send('hello')
-                response = await client.recv()
+                await client.recv()
 
 
 @atest
 async def test_multiple_responses_for_a_single_message():
 
-    communication =  [
+    communication = [
         ('hello', None),
         ('there', ['General', b'Kenobi']),
     ]

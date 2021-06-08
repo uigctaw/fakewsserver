@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Iterable, Optional, Union
 import collections
 import contextlib
 
@@ -7,9 +7,9 @@ import websockets
 
 class Result:
 
-    def __init__(self, communication: list):
-        self.communication = communication
-        if communication:
+    def __init__(self, messages_expected: bool):
+        self.exception: Optional[Exception]
+        if messages_expected:
             self.passed = False
             self.exception = AssertionError('Did not receive any messages.')
         else:
@@ -42,7 +42,7 @@ def get_ws_connection_handler(communication, result):
                     f'Failed {ith} step:\n'
                     f'Expected: "{expected_input}"\n'
                     + f'Got: "{message}"'
-                )   
+                )
                 result.passed = False
                 return
         if communication:
@@ -56,14 +56,32 @@ def get_ws_connection_handler(communication, result):
     return fn
 
 
+Message = Union[str, bytes]
+MessagePair = tuple[
+        Optional[Message],
+        Optional[Union[Iterable[Message], Message]],
+        ]
+
+
 @contextlib.asynccontextmanager
-async def assert_communication(port, communication):
-    result = Result(list(communication))
+async def assert_communication(
+        port: int,
+        communication: Iterable[MessagePair],
+        ):
+    result = Result(messages_expected=bool(list(communication)))
     handler = get_ws_connection_handler(communication, result)
-    async with websockets.serve(handler, '::1', port):
+    async with websockets.serve(  # type: ignore[attr-defined]
+            handler, '::1', port):
         try:
             yield
-        except websockets.exceptions.ConnectionClosedOK:
+
+        # If found mismatch between what was expected and received
+        # the server will close connection before the client expects it.
+        except (
+                websockets
+                .exceptions  # type: ignore[attr-defined]
+                .ConnectionClosedOK
+        ):
             pass
     if not result.passed:
-        raise result.exception
+        raise result.exception  # type: ignore[misc]
