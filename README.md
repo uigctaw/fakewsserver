@@ -28,8 +28,7 @@ async with assert_communication(
 assert response == 'there'
 ```
 
-## One message sent, one received. But the expected communication pattern
-does not match.
+## Expected communication pattern does not match.
 
 ```python
 communication = [
