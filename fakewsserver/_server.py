@@ -1,8 +1,17 @@
-from typing import Iterable, Optional, Union
+from typing import Iterable, Optional, Protocol, Union
+import asyncio
 import collections
 import contextlib
+import json
 
 import websockets
+
+
+LOCALHOST = 'localhost'
+
+
+class InvalidArguments(Exception):
+    pass
 
 
 class Result:
@@ -17,7 +26,7 @@ class Result:
             self.exception = None
 
 
-def get_ws_connection_handler(communication, result):
+def _get_asserting_ws_connection_handler(communication, result):
 
     communication = list(reversed(communication))
 
@@ -69,9 +78,9 @@ async def assert_communication(
         communication: Iterable[MessagePair],
         ):
     result = Result(messages_expected=bool(list(communication)))
-    handler = get_ws_connection_handler(communication, result)
+    handler = _get_asserting_ws_connection_handler(communication, result)
     async with websockets.serve(  # type: ignore[attr-defined]
-            handler, '::1', port):
+            handler, LOCALHOST, port):
         try:
             yield
 
@@ -85,3 +94,84 @@ async def assert_communication(
             pass
     if not result.passed:
         raise result.exception  # type: ignore[misc]
+
+
+@contextlib.asynccontextmanager
+async def respond_with(
+        port: int,
+        responses: Iterable[Message],
+        ):
+    handler = _get_dumb_responding_handler(responses)
+    async with websockets.serve(  # type: ignore[attr-defined]
+            handler, LOCALHOST, port):
+        yield
+
+
+def _get_dumb_responding_handler(responses):
+
+    async def fn(ws_proto, path):
+        async for message in ws_proto:
+            for response in responses:
+                await ws_proto.send(response)
+    return fn
+
+
+class AsyncClientProto(Protocol):
+
+    async def send(self, str) -> None:
+        pass
+
+    async def recv(self) -> str:
+        pass
+
+
+class WriteProto(Protocol):
+
+    def write(self, str) -> None:
+        pass
+
+
+async def write_communication(
+        *,
+        to_send: str,
+        client: AsyncClientProto,
+        file: WriteProto,
+        timeout: Optional[float],
+        num_responses: Optional[int],
+        ):
+    """Write communication as seen by the client.
+
+    Parameters
+    ----------
+    to_send:
+        A SINGLE message to send using the passed client.
+    client:
+        A thing with `send` and `recv` methods.
+    file:
+        A thing with 'write' method.
+    timeout:
+        How long to wait after each call to `recv` before giving up.
+        Pass `None` to wait indefinitely.
+    num_responses:
+        How many messages to consume before terminating. Pass `None` to
+        skip this limit.
+    """
+
+    if timeout is None and num_responses is None:
+        raise InvalidArguments(
+            f'Both cannot be `None`: {timeout = } and {num_responses = }'
+        )
+
+    comms = []
+    comms.append(dict(type='send', data=to_send))
+    await client.send(to_send)
+    num_responses_received = 0
+    while num_responses is None or num_responses_received < num_responses:
+        try:
+            received = await asyncio.wait_for(client.recv(), timeout=timeout)
+        except asyncio.exceptions.TimeoutError:
+            break
+        comms.append(dict(type='receive', data=received))
+        num_responses_received += 1
+    serialized = json.dumps(comms)
+    file.write(serialized)

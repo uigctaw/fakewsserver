@@ -3,7 +3,6 @@ import websockets
 
 from fakewsserver import assert_communication
 
-
 atest = pytest.mark.asyncio
 
 
@@ -20,7 +19,7 @@ async def test_single_response_succeeds():
             port=12345,
             communication=[('hello', 'there')],
             ):
-        async with websockets.connect('ws://[::1]:12345') as client:
+        async with websockets.connect('ws://localhost:12345') as client:
             await client.send('hello')
             response = await client.recv()
 
@@ -40,7 +39,7 @@ async def test_2_out_1_response_succeeds():
             port=12345,
             communication=communication,
             ):
-        async with websockets.connect('ws://[::1]:12345') as client:
+        async with websockets.connect('ws://localhost:12345') as client:
             await client.send('hello')
             await client.send(b'there')
             response = await client.recv()
@@ -60,7 +59,7 @@ async def test_2_messages_out_1_response_in_succeed():
             port=12345,
             communication=communication,
             ):
-        async with websockets.connect('ws://[::1]:12345') as client:
+        async with websockets.connect('ws://localhost:12345') as client:
             await client.send('hello')
             await client.send('there')
             response = await client.recv()
@@ -80,7 +79,7 @@ async def test_expected_message_is_incorrect_and_results_in_an_error():
                 port=12345,
                 communication=communication,
                 ):
-            async with websockets.connect('ws://[::1]:12345') as client:
+            async with websockets.connect('ws://localhost:12345') as client:
                 await client.send('hi')
                 await client.recv()
 
@@ -98,7 +97,7 @@ async def test_more_messages_expected_than_sent_causes_error():
                 port=12345,
                 communication=communication,
                 ):
-            async with websockets.connect('ws://[::1]:12345') as client:
+            async with websockets.connect('ws://localhost:12345') as client:
                 await client.send('hello')
                 await client.recv()
 
@@ -115,7 +114,7 @@ async def test_multiple_responses_for_a_single_message():
             port=12345,
             communication=communication,
             ):
-        async with websockets.connect('ws://[::1]:12345') as client:
+        async with websockets.connect('ws://localhost:12345') as client:
             await client.send('hello')
             await client.send('there')
             assert await client.recv() == 'General'
