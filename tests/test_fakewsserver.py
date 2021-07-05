@@ -72,6 +72,7 @@ async def test_expected_message_is_incorrect_and_results_in_an_error():
 
     communication = [
         ('hello', 'there'),
+        ('general', 'Kenobi'),
     ]
 
     with pytest.raises(AssertionError):
@@ -80,8 +81,21 @@ async def test_expected_message_is_incorrect_and_results_in_an_error():
                 communication=communication,
                 ):
             async with websockets.connect('ws://localhost:12345') as client:
-                await client.send('hi')
+                await client.send('hello')
+                response = await client.recv()
+                assert response == 'there'
+                await client.send('admiral')
                 await client.recv()
+    async with assert_communication(
+            port=12345,
+            communication=communication,
+            ):
+        async with websockets.connect('ws://localhost:12345') as client:
+            await client.send('hello')
+            response = await client.recv()
+            assert response == 'there'
+            await client.send('admiral')
+            await client.recv()
 
 
 @atest
