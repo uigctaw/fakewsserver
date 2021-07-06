@@ -1,8 +1,7 @@
-from typing import Iterable, Optional, Protocol, Union
-import asyncio
+from collections.abc import Sequence
+from typing import AsyncGenerator, Optional, Union
 import collections
 import contextlib
-import json
 
 import websockets
 
@@ -68,15 +67,39 @@ def _get_asserting_ws_connection_handler(communication, result):
 Message = Union[str, bytes]
 MessagePair = tuple[
         Optional[Message],
-        Optional[Union[Iterable[Message], Message]],
+        Optional[Union[Sequence[Message], Message]],
         ]
 
 
 @contextlib.asynccontextmanager
 async def assert_communication(
         port: int,
-        communication: Iterable[MessagePair],
-        ):
+        communication: Sequence[MessagePair],
+        ) -> AsyncGenerator:
+    """
+
+    Parameters
+    ----------
+    port:
+        localhost` port to which the server connects.
+    communication:
+        Sequence of 2-tuples of messages that are expected
+        to occur.
+
+        The 1st tuple element is a message that is expected
+        to be delivered when the server reads the connection.
+        If it's `None`, nothing is expected.
+
+        The 2nd tuple element contains a single or sequence
+        of messages that the server will respond with (or
+        unilaterally send if no incoming message is expected).
+
+    Raises
+    ------
+    AssertionError:
+        When expected exchange of messages between the server
+        and clients is not as expected.
+    """
     result = Result(messages_expected=bool(list(communication)))
     handler = _get_asserting_ws_connection_handler(communication, result)
     async with websockets.serve(  # type: ignore[attr-defined]
@@ -94,84 +117,3 @@ async def assert_communication(
             pass
     if not result.passed:
         raise result.exception  # type: ignore[misc]
-
-
-@contextlib.asynccontextmanager
-async def respond_with(
-        port: int,
-        responses: Iterable[Message],
-        ):
-    handler = _get_dumb_responding_handler(responses)
-    async with websockets.serve(  # type: ignore[attr-defined]
-            handler, LOCALHOST, port):
-        yield
-
-
-def _get_dumb_responding_handler(responses):
-
-    async def fn(ws_proto, path):
-        async for message in ws_proto:
-            for response in responses:
-                await ws_proto.send(response)
-    return fn
-
-
-class AsyncClientProto(Protocol):
-
-    async def send(self, str) -> None:
-        pass
-
-    async def recv(self) -> str:
-        pass
-
-
-class WriteProto(Protocol):
-
-    def write(self, str) -> None:
-        pass
-
-
-async def write_communication(
-        *,
-        to_send: str,
-        client: AsyncClientProto,
-        file: WriteProto,
-        timeout: Optional[float],
-        num_responses: Optional[int],
-        ):
-    """Write communication as seen by the client.
-
-    Parameters
-    ----------
-    to_send:
-        A SINGLE message to send using the passed client.
-    client:
-        A thing with `send` and `recv` methods.
-    file:
-        A thing with 'write' method.
-    timeout:
-        How long to wait after each call to `recv` before giving up.
-        Pass `None` to wait indefinitely.
-    num_responses:
-        How many messages to consume before terminating. Pass `None` to
-        skip this limit.
-    """
-
-    if timeout is None and num_responses is None:
-        raise InvalidArguments(
-            f'Both cannot be `None`: {timeout = } and {num_responses = }'
-        )
-
-    comms = []
-    comms.append(dict(type='send', data=to_send))
-    await client.send(to_send)
-    num_responses_received = 0
-    while num_responses is None or num_responses_received < num_responses:
-        try:
-            received = await asyncio.wait_for(client.recv(), timeout=timeout)
-        except asyncio.exceptions.TimeoutError:
-            break
-        comms.append(dict(type='receive', data=received))
-        num_responses_received += 1
-    serialized = json.dumps(comms)
-    file.write(serialized)

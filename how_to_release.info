@@ -1,0 +1,11 @@
+# TODO: automate
+
+1) Increase version in pyproject.toml
+2) Write the same version in fakewsserver/__init__.py.
+3) Git add, commit and push
+4) Tag with the version used above.
+   If version is "1.2.3", tag should be "v1.2.3".
+   "git tag -a v1.2.3 -m release"
+5) Push the tag ("git push origin v1.2.3" in the example above)
+6) Publish with "poetry publish"
+

@@ -86,16 +86,6 @@ async def test_expected_message_is_incorrect_and_results_in_an_error():
                 assert response == 'there'
                 await client.send('admiral')
                 await client.recv()
-    async with assert_communication(
-            port=12345,
-            communication=communication,
-            ):
-        async with websockets.connect('ws://localhost:12345') as client:
-            await client.send('hello')
-            response = await client.recv()
-            assert response == 'there'
-            await client.send('admiral')
-            await client.recv()
 
 
 @atest
