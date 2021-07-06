@@ -7,5 +7,5 @@
    If version is "1.2.3", tag should be "v1.2.3".
    "git tag -a v1.2.3 -m release"
 5) Push the tag ("git push origin v1.2.3" in the example above)
-6) Publish with "poetry publish"
+6) Publish with "poetry publish --build"
 

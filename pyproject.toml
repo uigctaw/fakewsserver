@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fakewsserver"
-version = "0.2.0"
+version = "0.2.1"
 description = "Websocket server for testing"
 authors = ["uigctaw <uigctaw@protonmail.com>"]
 readme="README.md"
